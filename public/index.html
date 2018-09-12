@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>tracko</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDSrJ4LHuz81nbePEAXFzC8gujBpbBA9S4"></script>
+
+    <style type="text/css">
+    html, body, #map {
+         width: 100%;
+         height: 100%;
+         margin: 0;
+         padding: 0;
+     }
+
+     .SvgOverlay, .SvgOverlay svg {
+         position: absolute;
+     }
+
+     .SvgOverlay svg {
+         width: 60px;
+         height: 20px;
+         padding-right: 100px;
+         font: 10px sans-serif;
+     }
+
+     .SvgOverlay circle {
+         fill: brown;
+         stroke: black;
+         stroke-width: 1.5px;
+    }
+    </style>
+
+  </head>
+  <body>
+
+    <div id="map"></div>
+    <svg></svg>
+    <button type="button" id="deleteButton">delete</button>
+
+<script src="https://www.gstatic.com/firebasejs/5.4.2/firebase.js"></script>
+<script>
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyBb-OygJEprnPL0-SVhe-9V1UZj8_Z4INA",
+    authDomain: "tracko-216009.firebaseapp.com",
+    databaseURL: "https://tracko-216009.firebaseio.com",
+    projectId: "tracko-216009",
+    storageBucket: "tracko-216009.appspot.com",
+    messagingSenderId: "154007446138"
+  };
+  firebase.initializeApp(config);
+</script>
+    <!-- <script src="calc.js"></script> -->
+    <!-- <script src="mapping2.js"></script> -->
+    <script src="test.js"></script>
+  </body>
+</html>
