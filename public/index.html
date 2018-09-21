@@ -15,17 +15,21 @@
 
      .SvgOverlay, .SvgOverlay svg {
          position: absolute;
+		 z-index: 100;
      }
 
      .SvgOverlay svg {
          width: 60px;
          height: 20px;
-         padding-right: 100px;
+		 padding-right: 100px;
+		 padding-top: 100px;
+		 padding-left: 100px;
+         padding-bottom: 100px;
          font: 10px sans-serif;
      }
 
      .SvgOverlay circle {
-         fill: brown;
+         /* fill: brown; */
          stroke: black;
          stroke-width: 1.5px;
     }
@@ -35,7 +39,8 @@
   <body>
 
     <div id="map"></div>
-    <svg></svg>
+	<svg></svg>
+
     <button type="button" id="deleteButton">delete</button>
 
 <script src="https://www.gstatic.com/firebasejs/5.4.2/firebase.js"></script>

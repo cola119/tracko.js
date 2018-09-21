@@ -1,17 +1,46 @@
+// 数点を記憶してそれをなめらかに遷移させればなめらかになる？
+// しっぽ
+// 結局全部の座標を保存？
 function GPSSensor(initData) {
 	var _div = null;
 	var _data = initData;
+	var _dataforpath = [[]];
+	var dataforpath = []
 	var _projection = null;
 
 	var marker = null
 	var circle = null
 	var text = null
+	var line = d3.line()
+				.x(function(d){return d[0];})
+				.y(function(d){return d[1];})
+	var path = null
 	var padding = 10;
 
-	function transform(d) {
+	var centerCount = 0;
+
+	var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+	function transform(d, i) {
+		// console.log("trans");
+		centerCount++;
 		d = new google.maps.LatLng(d.Lat, d.Long);
+		if(centerCount % 10 == 0) {
+			// map.setCenter(d)
+		}
+		circle.attr("r", map.zoom/3)
+		text.attr("font-size", 35-map.zoom+"px")
 		d = _projection.fromLatLngToDivPixel(d); //ドラッグしたときの変化量
-		d3.select(this).style("left", (d.x - padding) + "px").style("top", (d.y - padding) + "px");
+
+		// console.log(i);
+		// _dataforpath[i][_dataforpath[i].length] = [d.x - padding-100, d.y - padding-100]
+		// dataforpath[i] = _dataforpath[i].map(function(v, i, arr) {
+		// 	if(i == 0) return v
+		// 	else return [v[0] - arr[i-1][0], v[1] - arr[i-1][1]]
+		// })
+		//
+		// d3.select(this).selectAll("path").attr("d", line(dataforpath[i]))
+		d3.select(this).style("left", (d.x - padding-100) + "px").style("top", (d.y - padding-100) + "px");
 	}
 
 	function transformWithEase(d) {
@@ -24,7 +53,11 @@ function GPSSensor(initData) {
 
 	// 最初に全員分のsvgを用意する
 	this.onAdd = function() {
-		console.log("onAdd");
+		for(var i = 0; i < _data.length; i++) {
+			_dataforpath[i] = []
+			_dataforpath[i][0] = [padding, padding]
+		}
+		// console.log("onAdd");
 		_div = d3.select(this.getPanes().overlayLayer)
 				.append("div")
 				.attr("class", "SvgOverlay");
@@ -32,20 +65,32 @@ function GPSSensor(initData) {
 				.data(_data, function (d) { return d.Key; })
 				.each(transform)
 				.enter().append("svg:svg")
-				.attr("class", "marker");
+				.attr("class", "marker")
 		circle = marker.append("svg:circle")
 				.attr("r", 4.5)
 				.attr("cx", padding)
-				.attr("cy", padding);
+				.attr("cy", padding)
+				.attr('fill', function(d, i) {
+					return color(i)
+				})
 		text = marker.append("svg:text")
-				.attr("x", padding + 7)
+				.attr("x", padding + 10)
 				.attr("y", padding)
 				.attr("dy", ".31em")
+				.attr('fill', function(d, i) {
+					return color(i)
+				})
 				.text(function (d) { return d.Key; });
+
+		// _dataforpath[0] = [padding, padding]
+		// path = marker.append("svg:path")
+		// 		// .attr("d", line())
+		// 		.attr("stroke", "lightgreen")
+		// 		.attr("stroke-width", "4px")
 	};
 
 	this.draw = function () {
-		console.log("draw");
+		// console.log("draw");
 		_projection = this.getProjection();
 		_div.selectAll("svg")
 			.data(_data, function (d) { return d.Key; }) //すでに存在するものをkeyで選ぶ
@@ -57,12 +102,10 @@ function GPSSensor(initData) {
 	};
 
 	this.update = function (data) {
-		console.log("update");
+		// console.log("update");
 		for (var i = 0; i < data.length; i++) {
-			var found = false;
 			for (var j = 0; j < _data.length; j++) {
 				if (_data[j].Key === data[i].Key) {
-					found = true;
 					_data[j].Lat = data[i].Lat;
 					_data[j].Long = data[i].Long;
 				}
@@ -83,47 +126,6 @@ var slider = new Slider()
 var data = []
 
 GPSSensor.prototype = new google.maps.OverlayView();
-
-// d3.xml("hokudai.gpx").then(function(xml) {
-//     var trkpt = xml.querySelectorAll("trkseg")[0].querySelectorAll("trkpt");
-//     var lat = null
-//     var lon = null
-//     var _data = null
-//     for(var i = 0; i < trkpt.length; i++) {
-//         lat = trkpt[i].attributes[0].value
-//         lon = trkpt[i].attributes[1].value
-//         _data = {
-//           Key: "user",
-//           Lat: parseFloat(lat),
-//           Long: parseFloat(lon)
-//         }
-//         data.push(_data)
-//     }
-//
-//     var map = new google.maps.Map(d3.select("#map").node(), {
-//       zoom: 15,
-//       center: new google.maps.LatLng(data[0].Lat, data[0].Long),
-//       // center: new google.maps.LatLng(36.53, 139.06),
-//       // center: new google.maps.LatLng(-33.690126, 150.924187),
-//       mapTypeId: google.maps.MapTypeId.ROADMAP
-//     });
-//
-//     var sensorData = [
-//       // sensor1Data[0]
-//       data[0]
-//     ];
-//     console.log(data[0])
-//     var sensorLayer = new GPSSensor(sensorData);
-//     sensorLayer.setMap(map);
-//
-//     slider.width(500).x(40).y(10).value(0).event(function() {
-//         var index = Math.max(0, Math.floor(slider.value()*data.length) - 1)
-//         if(index >= data.length) index = data.length - 1
-//         sensorLayer.update([data[index]])
-//         // console.log(data[index])
-//     })
-//     sliderDiv.call(slider);
-// })
 
 
 function sleep(milliseconds) {
@@ -254,62 +256,81 @@ function Slider () {
 
 
 var db = firebase.database();
-var userLocation = db.ref("locations")
+var usernameref = db.ref("users")
+var userLocation = db.ref("user-locations")
 
+var username = []
+
+// いる？
 var currentData = []
-var currentData2 = []
 var sensorLayer = null
 
-var dataset = null
-var pushData = null
+var dataset = []
+var pushData = []
+var _pushData = null
 var map = null
+var cnt = 0
+
+usernameref.once('value').then(function(snapshot) {
+	var data = snapshot.val()
+	for(key in data) {
+		username[key] = data[key].name
+	}
+})
 
 userLocation.once('value').then(function(snapshot) {
 	var data = snapshot.val();
-	for(key in data) {
-		pushData = {
-			Key: "ueno",
-			Lat: data[key].lat,
-			Long: data[key].long
+	for(user in data) {
+		for(key in data[user]) {
+			_pushData = {
+				Key: username[user],
+				Lat: data[user][key].lat,
+				Long: data[user][key].long
+			}
+			pushData[cnt] = _pushData
+			cnt++
 		}
-		pushData2 = {
-			Key: "kouhei",
-			Lat: data[key].lat,
-			Long: data[key].long
-		}
-		currentData.push(pushData)
-		// currentData2.push(pushData2)
+		currentData[user] = pushData
+		cnt = 0
+		pushData = []
 	}
-	dataset = [
-		currentData[currentData.length-1],
-		// currentData2[currentData.length-5],
-	]
-
+	var users = Object.keys(currentData)
+	//
+	for(var i = 0; i < users.length; i++) {
+		dataset[i] = currentData[users[i]][currentData[users[i]].length-1]
+	}
 	map = new google.maps.Map(d3.select("#map").node(), {
-		zoom: 18,
+		zoom: 16,
 		center: new google.maps.LatLng(dataset[0].Lat, dataset[0].Long),
 		mapTypeId: google.maps.MapTypeId.ROADMAP
 	});
-
+	var groundOverlay = new google.maps.GroundOverlay( "img/ooo.png", new google.maps.LatLngBounds(
+		new google.maps.LatLng( 35.600436 , 139.678141 ),
+		new google.maps.LatLng( 35.609257 , 139.685190 )
+		// new google.maps.LatLng( 36.525904 , 139.091286 ),
+		// new google.maps.LatLng( 36.547642 , 139.099084 )
+	), {
+		map: map,
+		opacity: 1
+	} )
 	sensorLayer = new GPSSensor(dataset);
 	sensorLayer.setMap(map);
+
+	var element = document.getElementsByTagName("img")
 })
 
-userLocation.on("child_added", function(snapshot) {
+userLocation.on("child_changed", function(snapshot) {
+	var data = snapshot.val();
+	var keys = Object.keys(data)
+	var key = snapshot.ref.key
 	pushData = {
-		Key: "ueno",
-		Lat: snapshot.child("lat").val(),
-		Long: snapshot.child("long").val()
+		Key: username[key],
+		Lat: data[keys[keys.length-1]].lat,
+		Long: data[keys[keys.length-1]].long
 	}
-	pushData2 = {
-		Key: "kouhei",
-		Lat: snapshot.child("lat").val(),
-		Long: snapshot.child("long").val()
-	}
-	if(pushData != null && currentData.length > 0) {
-		currentData.push(pushData)
+	if(pushData != null) {
+		// console.log(pushData);
 		sensorLayer.update([pushData])
-		// sensorLayer.update([pushData, pushData2])
 	}
 });
 
