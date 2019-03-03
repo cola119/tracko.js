@@ -1,25 +1,55 @@
-// 数点を記憶してそれをなめらかに遷移させればなめらかになる？
-// しっぽ
-// 結局全部の座標を保存？
+
+
+// initData: [{key:Ueno, Lat:xxx, Long:xxx}] ユーザーの初期位置
 function GPSSensor(initData) {
 	var _div = null;
 	var _data = initData;
-	var _dataforpath = [[]];
-	var dataforpath = []
+	var _dataforpath = []	// Lat Longで保存
+	var dataforpath = []	// pixelに変換したものを保存
 	var _projection = null;
 
 	var marker = null
 	var circle = null
-	var text = null
-	var line = d3.line()
-				.x(function(d){return d[0];})
-				.y(function(d){return d[1];})
-	var path = null
+	var name = null
+	var svg_padding = 4000;
 	var padding = 10;
+	var line = d3.line()
+				.x(function(d){return (1)*(d.x) + svg_padding;})
+				.y(function(d){return (1)*d.y + svg_padding;})
+	var path = null
+	var default_path_length = 30
+	var path_shift_flag = true
 
 	var centerCount = 0;
 
 	var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+	this.setUserCenter = function(userkey, index) {
+		if(currentData[userkey] != null) {
+			var d = currentData[userkey][currentData[userkey].length-1]
+			d = new google.maps.LatLng(d.Lat, d.Long)
+			map.setCenter(d)
+		}
+	}
+	this.drawUserRoute = function(userkey, index) {
+		if(currentData[userkey] != null) {
+			console.log(index);
+			var length = _dataforpath[index-1].length
+			// path<15 -> 軌跡まだない -> pathを増やす
+			if(length <= default_path_length) {
+				path_shift_flag = false
+				dataforpath[index-1] = []
+				_dataforpath[index-1] = currentData[userkey].slice()
+			} else {
+				path_shift_flag = true
+				dataforpath[index-1] = []
+				_dataforpath[index-1] = currentData[userkey].slice(length-default_path_length, length)
+			}
+		}
+		_div.selectAll("path")
+			.data(_data, function(d){ return d.Key })
+			.each(transformPath)
+	}
 
 	function transform(d, i) {
 		// console.log("trans");
@@ -28,93 +58,176 @@ function GPSSensor(initData) {
 		if(centerCount % 10 == 0) {
 			// map.setCenter(d)
 		}
-		circle.attr("r", map.zoom/3)
-		text.attr("font-size", 35-map.zoom+"px")
-		d = _projection.fromLatLngToDivPixel(d); //ドラッグしたときの変化量
-
-		// console.log(i);
-		// _dataforpath[i][_dataforpath[i].length] = [d.x - padding-100, d.y - padding-100]
-		// dataforpath[i] = _dataforpath[i].map(function(v, i, arr) {
-		// 	if(i == 0) return v
-		// 	else return [v[0] - arr[i-1][0], v[1] - arr[i-1][1]]
-		// })
-		//
-		// d3.select(this).selectAll("path").attr("d", line(dataforpath[i]))
+		d = _projection.fromLatLngToDivPixel(d); //div内の位置
 		d3.select(this).style("left", (d.x - padding-100) + "px").style("top", (d.y - padding-100) + "px");
 	}
 
-	function transformWithEase(d) {
+	function transformCircle(d, i) {
 		d = new google.maps.LatLng(d.Lat, d.Long);
 		d = _projection.fromLatLngToDivPixel(d);
 		d3.select(this)
-			.transition().duration(500)
-			.attr('transform', 'translate('+(d.x - padding)+', '+(d.y - padding)+')')
+			.attr("cx", d.x+svg_padding)
+			.attr("cy", d.y+svg_padding)
+			.attr("r", map.zoom/2)
+			.attr("stroke", "black")
+			.attr("stroke-width", "1.5px")
+	}
+	function transformName(d, i) {
+		d = new google.maps.LatLng(d.Lat, d.Long);
+		d = _projection.fromLatLngToDivPixel(d);
+		d3.select(this)
+			.attr("x", d.x+svg_padding+15)
+			.attr("y", d.y+svg_padding)
+			.attr("font-size", 45-map.zoom+"px")
+	}
+	function transformPath(d, i) {
+		// dataforpath[i] = [];
+		_dataforpath[i].forEach(function(_d, j) {
+			d = new google.maps.LatLng(_d.Lat, _d.Long);
+			d = _projection.fromLatLngToDivPixel(d);
+			dataforpath[i][j] = d
+		})
+		// var a = dataforpath[i].slice()
+		// console.log(a);
+		// console.log(dataforpath[i]);
+		// console.log(map.zoom);
+		d3.select(this)
+			.attr("d", line(dataforpath[i]))
+			.attr("stroke-width", (map.zoom-11)+"px")
 	}
 
-	// 最初に全員分のsvgを用意する
 	this.onAdd = function() {
-		for(var i = 0; i < _data.length; i++) {
+		console.log("onAdd");
+		_projection = this.getProjection();
+		// 人数分初期化
+		_data.forEach(function(d, i) {
 			_dataforpath[i] = []
-			_dataforpath[i][0] = [padding, padding]
-		}
-		// console.log("onAdd");
-		_div = d3.select(this.getPanes().overlayLayer)
-				.append("div")
-				.attr("class", "SvgOverlay");
-		marker = _div.selectAll("svg")
-				.data(_data, function (d) { return d.Key; })
-				.each(transform)
-				.enter().append("svg:svg")
-				.attr("class", "marker")
-		circle = marker.append("svg:circle")
-				.attr("r", 4.5)
-				.attr("cx", padding)
-				.attr("cy", padding)
-				.attr('fill', function(d, i) {
-					return color(i)
-				})
-		text = marker.append("svg:text")
-				.attr("x", padding + 10)
-				.attr("y", padding)
-				.attr("dy", ".31em")
-				.attr('fill', function(d, i) {
-					return color(i)
-				})
-				.text(function (d) { return d.Key; });
+			dataforpath[i] = []
+		})
+		// しっぽ設定
+		_data.forEach(function(d, i) {
+			var userkey = "user"+(i+1)
 
-		// _dataforpath[0] = [padding, padding]
-		// path = marker.append("svg:path")
-		// 		// .attr("d", line())
-		// 		.attr("stroke", "lightgreen")
-		// 		.attr("stroke-width", "4px")
+			if(currentData[userkey] != null) {
+				var length = currentData[userkey].length
+				// currentDataの後ろdefault_path_length個を代入
+				if(length > default_path_length) {
+					// 後ろから２つ目の要素がupdateでpushするデータと連動する
+					currentData[userkey].pop()
+					_dataforpath[i] = currentData[userkey].slice(length-default_path_length, length)
+					// var a = currentData[userkey].slice(length-default_path_length, length-1)
+					// console.log(_dataforpath[i]);
+					// console.log(a);
+					// _dataforpath[i].pop()
+				} else {
+					currentData[userkey].pop()
+					_dataforpath[i] = currentData[userkey].slice()
+					// _dataforpath[i].pop()
+				}
+			}
+		})
+		_div = d3.select(this.getPanes().mapPane)
+				.append("div")
+				.attr("class", "SvgOverlay")
+		d3.select(_div.node().parentNode).style("z-index", 102)
+		svg = _div.append("svg")
+		circle = svg.append("g")
+				.selectAll("circle")
+				.data(_data, function(d){ return d.Key })
+				.enter()
+				.append("circle")
+				.attr("r", 5)
+				.attr('fill', function(d, i) {
+					return color(i)
+				})
+				.each(transformCircle)
+		name = svg.append("g")
+				.selectAll("text")
+				.data(_data, function(d){ return d.Key })
+				.enter()
+				.append("text")
+				.attr('fill', function(d, i) {
+					return color(i)
+				})
+				.text(function (d) { return d.Key; })
+				.each(transformName)
+		path = svg.append("g")
+				.selectAll("path")
+				.data(_data, function(d){ return d.Key })
+				.enter()
+				.append("path")
+				.attr("stroke", function(d, i) {
+					return color(i)
+				})
+				.attr("stroke-width", "6px")
+				.attr("fill", "none")
+				.attr("opacity", 0.8)
+				.each(transformPath)
 	};
 
 	this.draw = function () {
 		// console.log("draw");
-		_projection = this.getProjection();
-		_div.selectAll("svg")
-			.data(_data, function (d) { return d.Key; }) //すでに存在するものをkeyで選ぶ
-			.each(transform) // update existing markers
+		_div.selectAll("circle")
+			.data(_data, function(d) { return d.Key; })
+			.each(transformCircle)
+		_div.selectAll("text")
+			.data(_data, function(d) { return d.Key; })
+			.each(transformName)
+		_div.selectAll("path")
+			.data(_data, function(d) { return d.Key; })
+			.each(transformPath)
 	};
 
 	this.onRemove = function () {
 		_div.remove();
 	};
+	// {Key: ueno, connect: true}
+	this.connection_changed = function(data) {
+		_div.selectAll("circle")
+			.filter(function(d) {
+				return d.Key == data.Key
+			})
+			.attr("opacity", function(d) {
+				if(data.connect) return 1;
+				else return 0.3;
+			})
+		_div.selectAll("path")
+			.filter(function(d) {
+				return d.Key == data.Key
+			})
+			.attr("opacity", function(d) {
+				if(data.connect) return 0.8;
+				else return 0.3;
+			})
+	}
 
-	this.update = function (data) {
+	this.update = function(data) {
 		// console.log("update");
-		for (var i = 0; i < data.length; i++) {
-			for (var j = 0; j < _data.length; j++) {
-				if (_data[j].Key === data[i].Key) {
-					_data[j].Lat = data[i].Lat;
-					_data[j].Long = data[i].Long;
+		// onAddが呼ばれて初期化される前にupdateが呼ばれることがある
+		if(_dataforpath[0] == null) {
+			console.log("error");
+			return
+		}
+		_data.forEach(function(d, i) {
+			if(d.Key === data.Key) {
+				d.Lat = data.Lat
+				d.Long = data.Long
+				_dataforpath[i].push(data)	// useri
+				if(_dataforpath[i].length > default_path_length && path_shift_flag == true) {
+					_dataforpath[i].shift()
 				}
 			}
-		}
-		_div.selectAll("svg")
-			.data(_data, function (d) { return d.Key; })
-			.each(transform);
-	};
+		})
+		_div.selectAll("circle")
+			.data(_data, function(d){ return d.Key; })
+			.each(transformCircle)
+		_div.selectAll("text")
+			.data(_data, function(d){ return d.Key; })
+			.each(transformName)
+		_div.selectAll("path")
+			.data(_data, function(d){ return d.Key })
+			.each(transformPath)
+	}
 }
 
 var sliderDiv = d3.select(".slider")
@@ -123,10 +236,6 @@ var sliderDiv = d3.select(".slider")
 				  .attr("height", 40)
 
 var slider = new Slider()
-var data = []
-
-GPSSensor.prototype = new google.maps.OverlayView();
-
 
 function sleep(milliseconds) {
 	return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -255,31 +364,70 @@ function Slider () {
 }
 
 
+$(document).on('click touchend', '.user-center', function() {
+	var select_user = $(this).attr("id");
+	var index = parseInt(select_user.split("user")[1])
+	sensorLayer.setUserCenter(select_user, index)
+})
+$(document).on('click touchend', '.user-route', function() {
+	var select_user = $(this).attr("id");
+	var index = parseInt(select_user.split("user")[1])
+	sensorLayer.drawUserRoute(select_user, index)
+})
+
+
+// firebase
 var db = firebase.database();
 var usernameref = db.ref("users")
 var userLocation = db.ref("user-locations")
 
+// username[user1] = "{name:ueno, connect:true}"
 var username = []
 
-// いる？
+// ユーザーの既存座標
 var currentData = []
-var sensorLayer = null
 
-var dataset = []
-var pushData = []
-var _pushData = null
+// svg layer
+var sensorLayer = null
+GPSSensor.prototype = new google.maps.OverlayView();
+
+// map
 var map = null
-var cnt = 0
 
 usernameref.once('value').then(function(snapshot) {
 	var data = snapshot.val()
 	for(key in data) {
 		username[key] = data[key].name
+		var html = '<div class="user-menu"><div class="user-name">'+username[key]+'</div><div class="user-content"><span class="user-center" id="'+key+'">center</span><br><span class="user-route" id="'+key+'">route</span></div></div>'
+		$('.drawer-nav').append(html)
 	}
 })
 
+usernameref.on("child_changed", function(snapshot) {
+	var data = snapshot.val().connections
+	var user = snapshot.ref.key
+	var pushData = null
+	if(data === undefined) {
+		pushData = {
+			Key: username[user],
+			connect: false
+		}
+	} else {
+		pushData = {
+			Key: username[user],
+			connect: true
+		}
+	}
+	sensorLayer.connection_changed(pushData)
+})
+
 userLocation.once('value').then(function(snapshot) {
+	console.log(".once('value')");
+	// currentDataに既存座標を登録
 	var data = snapshot.val();
+	var cnt = 0;
+	var pushData = []
+	var _pushData = null
 	for(user in data) {
 		for(key in data[user]) {
 			_pushData = {
@@ -294,45 +442,61 @@ userLocation.once('value').then(function(snapshot) {
 		cnt = 0
 		pushData = []
 	}
+
+	// user_last_coordinateにユーザーの最終座標を登録
+	var user_last_coordinate = []
 	var users = Object.keys(currentData)
-	//
 	for(var i = 0; i < users.length; i++) {
-		dataset[i] = currentData[users[i]][currentData[users[i]].length-1]
+		user_last_coordinate[i] = currentData[users[i]][currentData[users[i]].length-1]
 	}
+
+	// google map初期化
 	map = new google.maps.Map(d3.select("#map").node(), {
 		zoom: 16,
-		center: new google.maps.LatLng(dataset[0].Lat, dataset[0].Long),
-		mapTypeId: google.maps.MapTypeId.ROADMAP
+		center: new google.maps.LatLng(user_last_coordinate[0].Lat, user_last_coordinate[0].Long),
+		mapTypeId: google.maps.MapTypeId.ROADMAP,
+		streetViewControl: false,
+		mapTypeControl: false,
+		disableDefaultUI: true,
 	});
-	var groundOverlay = new google.maps.GroundOverlay( "img/ooo.png", new google.maps.LatLngBounds(
-		new google.maps.LatLng( 35.600436 , 139.678141 ),
-		new google.maps.LatLng( 35.609257 , 139.685190 )
-		// new google.maps.LatLng( 36.525904 , 139.091286 ),
-		// new google.maps.LatLng( 36.547642 , 139.099084 )
-	), {
-		map: map,
-		opacity: 1
-	} )
-	sensorLayer = new GPSSensor(dataset);
+	var groundOverlay = new google.maps.GroundOverlay(
+		// "img/ooo.png",
+		// new google.maps.LatLngBounds(
+		// 	new google.maps.LatLng( 35.600436 , 139.678141 ),
+		// 	new google.maps.LatLng( 35.609257 , 139.685190 )
+		// ),
+		"img/torioi.bmp",
+		new google.maps.LatLngBounds(
+			new google.maps.LatLng( 35.244592 , 138.698838 ),	// 左下
+			new google.maps.LatLng( 35.264056 , 138.722321 )	// 右上
+		),
+		{
+			map: map,
+			opacity: 1
+		}
+	)
+	sensorLayer = new GPSSensor(user_last_coordinate);
 	sensorLayer.setMap(map);
-
-	var element = document.getElementsByTagName("img")
 })
 
+// userの座標が更新されたらupdate()
 userLocation.on("child_changed", function(snapshot) {
+	// console.log("child_changed");
 	var data = snapshot.val();
 	var keys = Object.keys(data)
-	var key = snapshot.ref.key
-	pushData = {
-		Key: username[key],
+	var user = snapshot.ref.key
+	var newData = {
+		Key: username[user],
 		Lat: data[keys[keys.length-1]].lat,
 		Long: data[keys[keys.length-1]].long
 	}
-	if(pushData != null) {
-		// console.log(pushData);
-		sensorLayer.update([pushData])
+	currentData[user].push(newData)
+	// console.log(currentData);
+	if(newData != null) {
+		sensorLayer.update(newData)
 	}
 });
+
 
 document.getElementById("deleteButton").onclick = function(){
 	userLocation.remove();
