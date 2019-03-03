@@ -1,1 +1,6 @@
 config.js
+*.gpx
+*.xml
+img/
+.firebase
+.firebaserc
