@@ -4,7 +4,7 @@ Realtime GPS tracking system for orienteering.
 オリエンテーリング競技中の選手の位置をリアルタイムで表示します。
 
 # Dependency
-JavaScript / D3.js / leaflet.js
+JavaScript / D3.js / leaflet.js  
 Firebase Realtime Database
 
 # Usage
